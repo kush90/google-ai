@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>File Upload</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      margin: 0;
+      padding: 0;
+      height: 100vh;
+      background-color: #f0f0f0;
+    }
+
+    h5 {
+      margin-top: 20px;
+      margin-bottom: 10px;
+    }
+
+    form {
+      background: #fff;
+      padding: 20px;
+      border-radius: 10px;
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+      width: 300px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    select,
+    input[type="text"],
+    input[type="file"],
+    input[type="submit"],
+    input[type="button"] {
+      padding: 10px;
+      border: 1px solid #ccc;
+      border-radius: 5px;
+      width: 100%;
+      box-sizing: border-box;
+    }
+
+    input[type="submit"],
+    input[type="button"] {
+      background-color: #007bff;
+      color: white;
+      cursor: pointer;
+      border: none;
+    }
+
+    input[type="submit"]:disabled,
+    input[type="button"]:disabled {
+      background-color: #ccc;
+      cursor: not-allowed;
+    }
+
+    #imagePreview {
+      margin-top: 20px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      justify-content: center;
+    }
+
+    #imagePreview img {
+      max-width: 200px;
+      max-height: 200px;
+      border-radius: 10px;
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    }
+
+    #responseText {
+      margin-top: 20px;
+      padding: 10px;
+      background-color: #e9ecef;
+      border-radius: 5px;
+      width: 500px;
+      text-align: center;
+    }
+  </style>
+</head>
+
+<body>
+  <h5>Upload Images for Comparison and Reading!</h5>
+  <form id="uploadForm" action="/upload" method="POST" enctype="multipart/form-data">
+    <select id="optionSelect" name="option">
+      <option value="">Select One of the following options</option>
+      <option value="compare">Compare Two Images</option>
+      <option value="read">Read Images</option>
+    </select>
+    <input type="file" id="fileInput" name="images" multiple disabled />
+    <input type="text" id="askInput" name="askInput"
+      placeholder="Ask what you want to know from the image you upload" />
+    <input type="submit" value="Upload" id="uploadButton" disabled />
+    <input type="button" value="Cancel" id="cancelButton" disabled />
+  </form>
+  <!-- Image preview area -->
+  <div id="imagePreview"></div>
+
+  <!-- Response text display area -->
+  <div id="responseText"></div>
+
+  <!-- JavaScript code for image preview and response display -->
+  <script>
+    // Function to handle image preview
+    function previewImage() {
+      const fileInput = document.getElementById('fileInput');
+      const imagePreview = document.getElementById('imagePreview');
+
+      fileInput.addEventListener('change', function () {
+        const optionSelect = document.getElementById('optionSelect');
+        const files = this.files;
+        imagePreview.innerHTML = ''; // Clear previous previews
+
+        for (const file of files) {
+          const reader = new FileReader();
+          reader.onload = function (e) {
+            const img = document.createElement('img');
+            img.src = e.target.result;
+            img.style.maxWidth = '200px'; // Adjust image size as needed
+            imagePreview.appendChild(img);
+          }
+          reader.readAsDataURL(file);
+        }
+        uploadButton.disabled = false;
+        cancelButton.disabled = false;
+
+      });
+    }
+    // Call the previewImage function when the page loads
+    window.onload = function () {
+      previewImage();
+      const cancelButton = document.getElementById('cancelButton');
+      const optionSelect = document.getElementById('optionSelect');
+      const askInput = document.getElementById('askInput');
+      askInput.style.display = 'none'; // Hide the input field
+
+
+      cancelButton.addEventListener('click', function () {
+        // Clear form data
+        document.getElementById('uploadForm').reset();
+        // Clear response text
+        document.getElementById('responseText').textContent = '';
+        // Clear image preview
+        document.getElementById('imagePreview').innerHTML = '';
+        // const uploadButton = document.getElementById('uploadButton');
+        uploadButton.disabled = true;
+        cancelButton.disabled = true;
+        askInput.style.display = 'none'; // Hide the input field
+        fileInput.disabled = true;
+
+      });
+      optionSelect.addEventListener('change', function () {
+        if (optionSelect.value === 'read') {
+          askInput.style.display = 'block';
+          fileInput.disabled = false;
+        } else if (optionSelect.value === 'compare') {
+          askInput.style.display = 'none';
+          fileInput.disabled = false;
+        } else {
+          askInput.style.display = 'none';
+          fileInput.disabled = true;
+        }
+        uploadButton.disabled = true;
+        cancelButton.disabled = true;
+        fileInput.value = ''; // Clear file input
+        imagePreview.innerHTML = ''; 
+        document.getElementById('responseText').textContent = "";
+      });
+    }
+    document.getElementById('uploadForm').addEventListener('submit', async (event) => {
+      document.getElementById('responseText').textContent = "";
+      event.preventDefault();
+      const uploadButton = document.getElementById('uploadButton');
+      // Change submit button text to 'Uploading...'
+      uploadButton.value = 'Uploading...';
+      uploadButton.disabled = true;
+      const formData = new FormData(event.target);
+      const response = await fetch('/upload', {
+        method: 'POST',
+        body: formData
+      });
+      const data = await response.text();
+      document.getElementById('responseText').textContent = data;
+      uploadButton.value = 'Upload';
+      uploadButton.disabled = false;
+    });
+  </script>
+</body>
+
+</html>
