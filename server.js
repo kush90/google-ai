@@ -23,7 +23,7 @@ const storage = multer.diskStorage({
 // Init upload
 const upload = multer({
   storage: storage,
-  // limits: { fileSize: 5000000 }, // limit file size to 1MB
+  // limits: { fileSize: 1000000 }, // limit file size to 1MB
   fileFilter: function (req, file, cb) {
     checkFileType(file, cb);
   }
@@ -40,7 +40,8 @@ function checkFileType(file, cb) {
   if (mimetype && extname) {
     return cb(null, true);
   } else {
-    cb('Error: Images Only!');
+    cb(new Error('Error: Images Only!'));
+
   }
 }
 
@@ -54,12 +55,8 @@ app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 // Route to handle file upload
 app.post('/upload', async (req, res) => {
-  console.log('Request Body:', req.body);
   const askInput = req.body.askInput;
-  console.log(askInput)
-  console.log('Uploaded Files:', req.files);
   // Log the incoming request body to check if files are being sent correctly
-
 
   if (!req.files || !req.files.images) {
     res.status(400).send('Error: No Images Selected!');
@@ -101,7 +98,6 @@ async function processFiles(files, askInput) {
   const model = genAI.getGenerativeModel({ model: "gemini-pro-vision" });
 
   const prompt = askInput ? askInput : 'Can you tell me the differences between the two picutures';
-  console.log('prompt', prompt)
   const imageParts = files.map(fileToGenerativePart);
   const result = await model.generateContent([prompt, ...imageParts]);
   const response = await result.response;
@@ -119,8 +115,12 @@ function fileToGenerativePart(file) {
   };
 }
 app.use((err, req, res, next) => {
-  if (err.code === 'LIMIT_FILE_SIZE') {
-    return res.status(400).send('Error: File size too large. Maximum allowed size is 5MB.');
+  if (err instanceof multer.MulterError) {
+    if (err.code === 'LIMIT_FILE_SIZE') {
+      return res.status(400).send('Error: File size too large. Maximum allowed size is 5MB.');
+    }
+  } else if (err.message === 'Error: Images Only!') {
+    return res.status(400).send('Error: Images Only!');
   }
   next(err);
 });
