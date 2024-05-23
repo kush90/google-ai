@@ -4,7 +4,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>File Upload</title>
+  <title>Google Ai for Comparing & Reading Image</title>
   <style>
     body {
       font-family: Arial, sans-serif;
@@ -107,15 +107,17 @@
 
   <!-- JavaScript code for image preview and response display -->
   <script>
+    let uploadedFiles = [];
+
     // Function to handle image preview
     function previewImage() {
       const fileInput = document.getElementById('fileInput');
       const imagePreview = document.getElementById('imagePreview');
 
       fileInput.addEventListener('change', function () {
-        const optionSelect = document.getElementById('optionSelect');
         const files = this.files;
         imagePreview.innerHTML = ''; // Clear previous previews
+        uploadedFiles = [];
 
         for (const file of files) {
           const reader = new FileReader();
@@ -126,12 +128,13 @@
             imagePreview.appendChild(img);
           }
           reader.readAsDataURL(file);
+          uploadedFiles.push(file.name);
         }
         uploadButton.disabled = false;
         cancelButton.disabled = false;
-
       });
     }
+
     // Call the previewImage function when the page loads
     window.onload = function () {
       previewImage();
@@ -140,21 +143,33 @@
       const askInput = document.getElementById('askInput');
       askInput.style.display = 'none'; // Hide the input field
 
-
-      cancelButton.addEventListener('click', function () {
+      cancelButton.addEventListener('click', async function () {
         // Clear form data
         document.getElementById('uploadForm').reset();
         // Clear response text
         document.getElementById('responseText').textContent = '';
         // Clear image preview
         document.getElementById('imagePreview').innerHTML = '';
-        // const uploadButton = document.getElementById('uploadButton');
+        // Disable buttons
         uploadButton.disabled = true;
         cancelButton.disabled = true;
         askInput.style.display = 'none'; // Hide the input field
         fileInput.disabled = true;
+        console.log(uploadedFiles)
+        // Remove files from the backend
+        if (uploadedFiles.length > 0) {
+          await fetch('/delete', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ files: uploadedFiles }),
+          });
+        }
 
+        uploadedFiles = [];
       });
+
       optionSelect.addEventListener('change', function () {
         if (optionSelect.value === 'read') {
           askInput.style.display = 'block';
@@ -173,6 +188,7 @@
         document.getElementById('responseText').textContent = "";
       });
     }
+
     document.getElementById('uploadForm').addEventListener('submit', async (event) => {
       document.getElementById('responseText').textContent = "";
       event.preventDefault();
@@ -189,6 +205,10 @@
       document.getElementById('responseText').textContent = data;
       uploadButton.value = 'Upload';
       uploadButton.disabled = false;
+
+      // Store filenames of uploaded files
+      const responseData = JSON.parse(data);
+      uploadedFiles = responseData.filenames;
     });
   </script>
 </body>

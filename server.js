@@ -16,7 +16,7 @@ const genAI = new GoogleGenerativeAI(apiKey);
 const storage = multer.diskStorage({
   destination: './uploads/',
   filename: function (req, file, cb) {
-    cb(null, file.fieldname + '-' + Date.now() + path.extname(file.originalname));
+    cb(null, file.originalname);
   }
 });
 
@@ -114,6 +114,28 @@ function fileToGenerativePart(file) {
     },
   };
 }
+app.post('/delete', (req, res) => {
+  const { files } = req.body; // Destructure directly to get the files array
+  if (!files || !Array.isArray(files) || files.length === 0) {
+    return res.status(400).send('Error: No files specified for deletion.');
+  }
+
+  // Assuming files contain just the filenames without paths
+  files.forEach((filename) => {
+    const filePath = path.join(__dirname, 'uploads', filename);
+    fs.unlink(filePath, (err) => {
+      if (err) {
+        console.error(err);
+        res.status(500).send('Error deleting file');
+      }
+      // You might want to log or send a response for successful deletions
+    });
+  });
+
+  // Send a response once all deletions are attempted
+  res.status(200).send('Files deletion initiated.');
+});
+
 app.use((err, req, res, next) => {
   if (err instanceof multer.MulterError) {
     if (err.code === 'LIMIT_FILE_SIZE') {
