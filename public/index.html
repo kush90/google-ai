@@ -4,7 +4,9 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Google Ai for Comparing & Reading Image</title>
+  <title>Google AI for Comparing & Reading Image</title>
+  <link rel="icon" type="image/png" href="images.png">
+
   <style>
     body {
       font-family: Arial, sans-serif;
@@ -81,26 +83,34 @@
       border-radius: 5px;
       width: 500px;
       text-align: center;
+      white-space: pre-wrap;
+      /* Preserve whitespace and line breaks */
+
     }
   </style>
 </head>
 
 <body>
-  <h5>Upload Images for Comparison and Reading!</h5>
+  <h5>Upload Images for (Comparison and Reading) & Ask Anything!</h5>
   <form id="uploadForm" action="/upload" method="POST" enctype="multipart/form-data">
     <select id="optionSelect" name="option">
       <option value="">Select One of the following options</option>
       <option value="compare">Compare Two Images</option>
       <option value="read">Read Images</option>
+      <option value="ask">Ask Anything</option>
     </select>
     <input type="file" id="fileInput" name="images" multiple disabled />
-    <input type="text" id="askInput" name="askInput"
-      placeholder="Ask what you want to know from the image you upload" />
+    <input type="text" id="askInput" name="askInput" placeholder="Ask what you want to know from the image you upload"
+      style="display:none;" />
+    <input type="text" id="askInputAnything" name="askInputAnything" placeholder="Ask anything what you want to know"
+      style="display:none;" />
     <input type="submit" value="Upload" id="uploadButton" disabled />
     <input type="button" value="Cancel" id="cancelButton" disabled />
   </form>
   <!-- Image preview area -->
   <div id="imagePreview"></div>
+  <br />
+  <div id="responseTime"></div>
 
   <!-- Response text display area -->
   <div id="responseText"></div>
@@ -141,21 +151,26 @@
       const cancelButton = document.getElementById('cancelButton');
       const optionSelect = document.getElementById('optionSelect');
       const askInput = document.getElementById('askInput');
-      askInput.style.display = 'none'; // Hide the input field
+      const askInputAnything = document.getElementById('askInputAnything');
+      const uploadButton = document.getElementById('uploadButton');
+      const fileInput = document.getElementById('fileInput');
 
       cancelButton.addEventListener('click', async function () {
         // Clear form data
         document.getElementById('uploadForm').reset();
         // Clear response text
         document.getElementById('responseText').textContent = '';
+        document.getElementById('responseTime').textContent = '';
+
         // Clear image preview
         document.getElementById('imagePreview').innerHTML = '';
         // Disable buttons
         uploadButton.disabled = true;
         cancelButton.disabled = true;
         askInput.style.display = 'none'; // Hide the input field
+        askInputAnything.style.display = 'none'; // Hide the input field
         fileInput.disabled = true;
-        console.log(uploadedFiles)
+
         // Remove files from the backend
         if (uploadedFiles.length > 0) {
           await fetch('/delete', {
@@ -173,38 +188,93 @@
       optionSelect.addEventListener('change', function () {
         if (optionSelect.value === 'read') {
           askInput.style.display = 'block';
+          askInputAnything.style.display = 'none';
           fileInput.disabled = false;
+          uploadButton.disabled = true;
+          cancelButton.disabled = true;
+          fileInput.style.display = 'block';
+          uploadButton.style.display = 'block';
+          cancelButton.style.display = 'block';
         } else if (optionSelect.value === 'compare') {
           askInput.style.display = 'none';
+          askInputAnything.style.display = 'none';
           fileInput.disabled = false;
+          uploadButton.disabled = true;
+          cancelButton.disabled = true;
+          fileInput.style.display = 'block';
+          uploadButton.style.display = 'block';
+          cancelButton.style.display = 'block';
+        } else if (optionSelect.value === 'ask') {
+          askInput.style.display = 'none';
+          askInputAnything.style.display = 'block';
+          fileInput.style.display = 'none';
+          uploadButton.style.display = 'block';
+          cancelButton.style.display = 'block';
+          cancelButton.disabled = false;
+          uploadButton.disabled = false;
         } else {
           askInput.style.display = 'none';
+          askInputAnything.style.display = 'none';
           fileInput.disabled = true;
+          uploadButton.disabled = true;
+          cancelButton.disabled = true;
+          fileInput.style.display = 'block';
+          uploadButton.style.display = 'block';
+          cancelButton.style.display = 'block';
         }
-        uploadButton.disabled = true;
-        cancelButton.disabled = true;
         fileInput.value = ''; // Clear file input
-        imagePreview.innerHTML = ''; 
+        imagePreview.innerHTML = '';
         document.getElementById('responseText').textContent = "";
       });
     }
 
     document.getElementById('uploadForm').addEventListener('submit', async (event) => {
       document.getElementById('responseText').textContent = "";
+      document.getElementById('responseTime').textContent = "";
+
       event.preventDefault();
+      const optionSelect = document.getElementById('optionSelect');
+      const askInputAnything = document.getElementById('askInputAnything');
       const uploadButton = document.getElementById('uploadButton');
+      const cancelButton = document.getElementById('cancelButton');
+
+      // Initialize the timer
+      let startTime = Date.now();
+      let intervalId = setInterval(() => {
+        let elapsedTime = Date.now() - startTime;
+        let elapsedSeconds = (elapsedTime / 1000).toFixed(2); // Convert to seconds and format to 2 decimal places
+        document.getElementById('responseTime').textContent = `Response time: ${elapsedSeconds} seconds`;
+      }, 100)
       // Change submit button text to 'Uploading...'
       uploadButton.value = 'Uploading...';
       uploadButton.disabled = true;
+      cancelButton.disabled = true;
       const formData = new FormData(event.target);
       const response = await fetch('/upload', {
         method: 'POST',
         body: formData
       });
-      const data = await response.text();
-      document.getElementById('responseText').textContent = data;
+      clearInterval(intervalId); // Stop the timer
+
+      const data = await response.json();
+
+      const responseTextContainer = document.getElementById('responseText');
+      const lines = data.result.split('\n'); // Split the text into lines
+
+      lines.forEach(line => {
+        const textNode = document.createTextNode(line);
+        const lineBreak = document.createElement('br'); // Create a line break element
+        responseTextContainer.appendChild(textNode);
+        responseTextContainer.appendChild(lineBreak);
+      });
+      // Display response time
+      const endTime = Date.now();
+      const responseTime = ((endTime - startTime) / 1000).toFixed(2); // Convert to seconds and format to 2 decimal places
+      document.getElementById('responseTime').textContent = `Response time: ${responseTime} seconds`;
+
       uploadButton.value = 'Upload';
       uploadButton.disabled = false;
+      cancelButton.disabled = false;
 
       // Store filenames of uploaded files
       const responseData = JSON.parse(data);
