@@ -98,7 +98,7 @@ app.post('/upload', async (req, res) => {
 // Process uploaded files using Google Generative AI
 async function processFiles(files, askInput) {
   // For text-and-image input (multimodal), use the gemini-pro-vision model
-  const model = genAI.getGenerativeModel({ model: "gemini-pro-vision" });
+  const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
   const prompt = askInput ? askInput : 'Can you tell me the differences between the two pictures';
   const imageParts = files.map(fileToGenerativePart);
