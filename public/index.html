@@ -85,7 +85,19 @@
       text-align: center;
       white-space: pre-wrap;
       /* Preserve whitespace and line breaks */
+    }
 
+    #controlButtons {
+      margin-top: 10px;
+      display: flex;
+      gap: 10px;
+      width: 100%;
+      max-width: 500px;
+      justify-content: center;
+    }
+
+    #controlButtons input[type="button"] {
+      width: 30%;
     }
   </style>
 </head>
@@ -104,21 +116,32 @@
       style="display:none;" />
     <input type="text" id="askInputAnything" name="askInputAnything" placeholder="Ask anything what you want to know"
       style="display:none;" />
-    <input type="submit" value="Upload" id="uploadButton" disabled />
+    <input type="submit" value="Submit" id="uploadButton" disabled />
     <input type="button" value="Cancel" id="cancelButton" disabled />
   </form>
   <!-- Image preview area -->
   <div id="imagePreview"></div>
   <br />
   <div id="responseTime"></div>
-
+  <!-- Control buttons for speech synthesis -->
+  <div id="controlButtons">
+    <input type="button" id="speakButton" disabled value="Play Audio">
+    <input type="button" id="pauseButton" disabled value="Pause Audio">
+    <input type="button" id="resumeButton" disabled value="Resume Audio">
+    <input type="button" id="stopButton" disabled value="Stop Audio">
+  </div>
   <!-- Response text display area -->
   <div id="responseText"></div>
+
+
 
   <!-- JavaScript code for image preview and response display -->
   <script>
     let uploadedFiles = [];
-
+    let isSpeaking = false;
+    let isPaused = false;
+    let utterance;
+    let currentText = '';
     // Function to handle image preview
     function previewImage() {
       const fileInput = document.getElementById('fileInput');
@@ -145,6 +168,53 @@
       });
     }
 
+    // Function for text-to-speech conversion
+    function speakText(text) {
+      if (isSpeaking) {
+        if (isPaused) {
+          window.speechSynthesis.resume(); // Resume if paused
+          isPaused = false;
+          document.getElementById('pauseButton').disabled = false;
+          document.getElementById('resumeButton').disabled = true;
+        } else {
+          window.speechSynthesis.cancel(); // Stop if speaking
+          isSpeaking = false;
+          // document.getElementById('speakButton').value = 'Play Audio';
+        }
+      } else {
+        utterance = new SpeechSynthesisUtterance(text);
+        utterance.rate = 1; // Adjust the rate (speed) of speech if needed
+        utterance.pitch = 1; // Adjust the pitch of the voice if needed
+        window.speechSynthesis.speak(utterance);
+        isSpeaking = true;
+        currentText = text;
+        // document.getElementById('speakButton').value = 'Stop Audio';
+        document.getElementById('speakButton').disabled = true;
+        document.getElementById('pauseButton').disabled = false;
+        document.getElementById('resumeButton').disabled = true;
+
+        utterance.onend = function () {
+          isSpeaking = false;
+          document.getElementById('speakButton').value = 'Convert to Audio';
+          document.getElementById('pauseButton').disabled = true;
+          document.getElementById('resumeButton').disabled = true;
+        };
+
+        utterance.onpause = function () {
+          isPaused = true;
+          document.getElementById('pauseButton').disabled = true;
+          document.getElementById('resumeButton').disabled = false;
+        };
+
+        utterance.onresume = function () {
+          isPaused = false;
+          document.getElementById('pauseButton').disabled = false;
+          document.getElementById('resumeButton').disabled = true;
+        };
+      }
+    }
+
+
     // Call the previewImage function when the page loads
     window.onload = function () {
       previewImage();
@@ -154,7 +224,14 @@
       const askInputAnything = document.getElementById('askInputAnything');
       const uploadButton = document.getElementById('uploadButton');
       const fileInput = document.getElementById('fileInput');
-
+      const speakButton = document.getElementById('speakButton');
+      const pauseButton = document.getElementById('pauseButton');
+      const resumeButton = document.getElementById('resumeButton');
+      const stopButton = document.getElementById('stopButton');
+      speakButton.style.display = 'none'; // Hide the input field
+      pauseButton.style.display = 'none'; // Hide the input field
+      resumeButton.style.display = 'none'; // Hide the input field
+      stopButton.style.display = 'none'; // Hide the input field
       cancelButton.addEventListener('click', async function () {
         // Clear form data
         document.getElementById('uploadForm').reset();
@@ -165,11 +242,26 @@
         // Clear image preview
         document.getElementById('imagePreview').innerHTML = '';
         // Disable buttons
+        speakButton.style.display = 'none'; // Hide the input field
+      pauseButton.style.display = 'none'; // Hide the input field
+      resumeButton.style.display = 'none'; // Hide the input field
+      stopButton.style.display = 'none'; // Hide the input field
         uploadButton.disabled = true;
         cancelButton.disabled = true;
+        speakButton.disabled = true;
+        speakButton.style.display = true;
+        pauseButton.disabled = true;
+        resumeButton.disabled = true;
+        stopButton.disabled = true;
         askInput.style.display = 'none'; // Hide the input field
         askInputAnything.style.display = 'none'; // Hide the input field
         fileInput.disabled = true;
+        if (isSpeaking) {
+          window.speechSynthesis.cancel();
+          isSpeaking = false;
+          isPaused = false;
+          // document.getElementById('speakButton').value = 'Convert to Audio';
+        }
 
         // Remove files from the backend
         if (uploadedFiles.length > 0) {
@@ -225,6 +317,7 @@
         fileInput.value = ''; // Clear file input
         imagePreview.innerHTML = '';
         document.getElementById('responseText').textContent = "";
+        speakButton.disabled = true;
       });
     }
 
@@ -237,48 +330,97 @@
       const askInputAnything = document.getElementById('askInputAnything');
       const uploadButton = document.getElementById('uploadButton');
       const cancelButton = document.getElementById('cancelButton');
-
-      // Initialize the timer
-      let startTime = Date.now();
-      let intervalId = setInterval(() => {
-        let elapsedTime = Date.now() - startTime;
-        let elapsedSeconds = (elapsedTime / 1000).toFixed(2); // Convert to seconds and format to 2 decimal places
-        document.getElementById('responseTime').textContent = `Response time: ${elapsedSeconds} seconds`;
-      }, 100)
-      // Change submit button text to 'Uploading...'
-      uploadButton.value = 'Uploading...';
+      const speakButton = document.getElementById('speakButton');
+      const fileInput = document.getElementById('fileInput');
+      speakButton.style.display = 'block'; // Hide the input field
+      pauseButton.style.display = 'block'; // Hide the input field
+      resumeButton.style.display = 'block'; // Hide the input field
+      stopButton.style.display = 'block'; // Hide the input field
+      pauseButton.disabled = true;
       uploadButton.disabled = true;
-      cancelButton.disabled = true;
-      const formData = new FormData(event.target);
-      const response = await fetch('/upload', {
-        method: 'POST',
-        body: formData
-      });
-      clearInterval(intervalId); // Stop the timer
 
-      const data = await response.json();
+      const startTime = Date.now();
 
-      const responseTextContainer = document.getElementById('responseText');
-      const lines = data.result.split('\n'); // Split the text into lines
+      const intervalId = setInterval(() => {
+        const elapsedSeconds = Math.floor((Date.now() - startTime) / 1000);
+        // Update the response time in minutes and seconds
+        const minutes = Math.floor(elapsedSeconds / 60);
+        const seconds = elapsedSeconds % 60;
+        const formattedTime = `${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
+        document.getElementById('responseTime').textContent = `Processing Time: ${formattedTime}`;
+      }, 1000); // Update every second
 
-      lines.forEach(line => {
-        const textNode = document.createTextNode(line);
-        const lineBreak = document.createElement('br'); // Create a line break element
-        responseTextContainer.appendChild(textNode);
-        responseTextContainer.appendChild(lineBreak);
-      });
-      // Display response time
-      const endTime = Date.now();
-      const responseTime = ((endTime - startTime) / 1000).toFixed(2); // Convert to seconds and format to 2 decimal places
-      document.getElementById('responseTime').textContent = `Response time: ${responseTime} seconds`;
+      try {
+        const formData = new FormData();
+        formData.append('option', optionSelect.value);
 
-      uploadButton.value = 'Upload';
-      uploadButton.disabled = false;
+        if (optionSelect.value === 'ask') {
+          formData.append('askInputAnything', askInputAnything.value);
+        } else {
+          for (let i = 0; i < fileInput.files.length; i++) {
+            formData.append('images', fileInput.files[i]);
+          }
+          if (optionSelect.value === 'read') {
+            const askInput = document.getElementById('askInput').value;
+            formData.append('askInput', askInput);
+          }
+        }
+
+        const response = await fetch('/upload', {
+          method: 'POST',
+          body: formData,
+        });
+        const responseText = await response.text();
+        const jsonObject = JSON.parse(responseText);
+        if (response.ok) {
+          document.getElementById('responseText').textContent = jsonObject.result;
+          speakButton.disabled = false;
+          pauseButton.disabled = true;
+          resumeButton.disabled = true;
+          stopButton.disabled = true;
+        } else {
+          console.log(responseText)
+          document.getElementById('responseText').textContent = jsonObject.result;
+        }
+      } catch (error) {
+        console.error('Error uploading the files:', error);
+        document.getElementById('responseText').textContent = 'Error uploading the files';
+      } finally {
+        clearInterval(intervalId); // Stop the timer
+      }
+
+      uploadButton.disabled = true;
       cancelButton.disabled = false;
+    });
 
-      // Store filenames of uploaded files
-      const responseData = JSON.parse(data);
-      uploadedFiles = responseData.filenames;
+    document.getElementById('speakButton').addEventListener('click', function () {
+      const responseText = document.getElementById('responseText').textContent;
+      speakText(responseText);
+      document.getElementById('stopButton').disabled = false;
+    });
+
+    document.getElementById('pauseButton').addEventListener('click', function () {
+      if (isSpeaking) {
+        window.speechSynthesis.pause();
+      }
+    });
+
+    document.getElementById('resumeButton').addEventListener('click', function () {
+      if (isSpeaking && isPaused) {
+        window.speechSynthesis.resume();
+      }
+    });
+
+    document.getElementById('stopButton').addEventListener('click', function () {
+      if (isSpeaking) {
+        window.speechSynthesis.cancel();
+        isSpeaking = false;
+        document.getElementById('speakButton').disabled = false;
+        document.getElementById('pauseButton').disabled = true;
+        document.getElementById('resumeButton').disabled = true;
+        document.getElementById('stopButton').disabled = true;
+
+      }
     });
   </script>
 </body>
